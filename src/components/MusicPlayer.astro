@@ -1,0 +1,199 @@
+---
+const aplayerVersion = "1.10.1";
+const aplayerCssUrl = `https://cdn.jsdelivr.net/npm/aplayer@${aplayerVersion}/dist/APlayer.min.css`;
+const aplayerJsUrl = `https://cdn.jsdelivr.net/npm/aplayer@${aplayerVersion}/dist/APlayer.min.js`;
+const musicListUrl = "https://raw.githubusercontent.com/lihan3238/music/main/musicList.json";
+---
+
+<div id="global-music-player" aria-hidden="true"></div>
+
+<script is:inline define:vars={{ aplayerCssUrl, aplayerJsUrl, musicListUrl }}>
+(() => {
+	const PLAYER_ID = "global-music-player";
+	const STORAGE = {
+		index: "xubinyi_aplayer_index",
+		time: "xubinyi_aplayer_time",
+		paused: "xubinyi_aplayer_paused",
+	};
+
+	if (window.__xubinyiMusicBooted) return;
+	window.__xubinyiMusicBooted = true;
+
+	function ensureStylesheet() {
+		if (document.querySelector(`link[href="${aplayerCssUrl}"]`)) return;
+		const link = document.createElement("link");
+		link.rel = "stylesheet";
+		link.href = aplayerCssUrl;
+		document.head.appendChild(link);
+	}
+
+	function loadAPlayer() {
+		if (window.APlayer) return Promise.resolve(window.APlayer);
+		if (window.__xubinyiAPlayerScript) return window.__xubinyiAPlayerScript;
+
+		window.__xubinyiAPlayerScript = new Promise((resolve, reject) => {
+			const script = document.createElement("script");
+			script.src = aplayerJsUrl;
+			script.async = true;
+			script.onload = () => resolve(window.APlayer);
+			script.onerror = () => reject(new Error("Failed to load APlayer"));
+			document.head.appendChild(script);
+		});
+
+		return window.__xubinyiAPlayerScript;
+	}
+
+	function ensureContainer() {
+		let container = document.getElementById(PLAYER_ID);
+		if (!container) {
+			container = document.createElement("div");
+			container.id = PLAYER_ID;
+			container.setAttribute("aria-hidden", "true");
+			document.body.appendChild(container);
+		}
+		return container;
+	}
+
+	function normalizeAudioList(list) {
+		if (!Array.isArray(list)) return [];
+		return list.filter((item) => item && item.name && item.url);
+	}
+
+	function restoreState(ap) {
+		try {
+			const savedIndex = localStorage.getItem(STORAGE.index);
+			const savedTime = localStorage.getItem(STORAGE.time);
+			const savedPaused = localStorage.getItem(STORAGE.paused);
+
+			if (savedIndex !== null) {
+				const index = Number.parseInt(savedIndex, 10);
+				if (Number.isInteger(index) && index >= 0 && ap.list.index !== index) {
+					ap.list.switch(index);
+				}
+			}
+
+			if (savedTime === null) return;
+			const time = Number.parseFloat(savedTime);
+			if (!Number.isFinite(time) || time <= 0) return;
+
+			let restored = false;
+			const applyRestore = () => {
+				if (restored) return;
+				restored = true;
+				try {
+					ap.seek(time);
+					if (savedPaused === "false") {
+						ap.play();
+					}
+				} catch (_) {
+					// Audio metadata may still be unavailable; user interaction will recover.
+				}
+			};
+
+			if (ap.audio && ap.audio.readyState > 0) {
+				applyRestore();
+			} else {
+				ap.on("canplay", applyRestore);
+				ap.on("loadedmetadata", applyRestore);
+				window.setTimeout(applyRestore, 800);
+			}
+		} catch (error) {
+			console.warn("APlayer restore failed:", error);
+		}
+	}
+
+	function persistState(ap) {
+		if (window.__xubinyiAPlayerSaveTimer) {
+			window.clearInterval(window.__xubinyiAPlayerSaveTimer);
+		}
+
+		window.__xubinyiAPlayerSaveTimer = window.setInterval(() => {
+			try {
+				if (!ap.audio) return;
+				localStorage.setItem(STORAGE.index, String(ap.list.index));
+				localStorage.setItem(STORAGE.paused, ap.audio.paused ? "true" : "false");
+				if (!ap.audio.paused) {
+					localStorage.setItem(STORAGE.time, String(ap.audio.currentTime));
+				}
+			} catch (_) {
+				// localStorage can be unavailable in restricted browser modes.
+			}
+		}, 1000);
+	}
+
+	function initAPlayer(audioList) {
+		const audio = normalizeAudioList(audioList);
+		if (audio.length === 0) return;
+		if (window.__xubinyiAPlayer) return;
+
+		const container = ensureContainer();
+		window.__xubinyiAPlayer = new window.APlayer({
+			container,
+			fixed: true,
+			mini: true,
+			autoplay: false,
+			theme: "#f8f4fc",
+			loop: "all",
+			order: "random",
+			preload: "metadata",
+			volume: 0.4,
+			mutex: true,
+			listFolded: true,
+			listMaxHeight: "500px",
+			lrcType: 3,
+			audio,
+		});
+
+		restoreState(window.__xubinyiAPlayer);
+		persistState(window.__xubinyiAPlayer);
+	}
+
+	function bootMusicPlayer() {
+		ensureStylesheet();
+		Promise.all([
+			loadAPlayer(),
+			fetch(musicListUrl, { cache: "no-store" }).then((response) => {
+				if (!response.ok) throw new Error(`musicList HTTP ${response.status}`);
+				return response.json();
+			}),
+		])
+			.then(([, list]) => initAPlayer(list))
+			.catch((error) => {
+				console.warn("APlayer initialization failed:", error);
+			});
+	}
+
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", bootMusicPlayer, { once: true });
+	} else {
+		bootMusicPlayer();
+	}
+})();
+</script>
+
+<style is:global>
+#global-music-player {
+	position: relative;
+	z-index: 80;
+}
+
+.aplayer.aplayer-fixed {
+	z-index: 80;
+}
+
+.aplayer.aplayer-fixed .aplayer-body {
+	backdrop-filter: blur(12px);
+	border-top-right-radius: 8px;
+	box-shadow: 0 10px 30px rgb(0 0 0 / 12%);
+}
+
+.aplayer .aplayer-list ol li {
+	transition: none;
+}
+
+@media (max-width: 640px) {
+	.aplayer.aplayer-fixed .aplayer-body {
+		max-width: calc(100vw - 1rem);
+	}
+}
+</style>
