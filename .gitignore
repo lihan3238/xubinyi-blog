@@ -29,3 +29,7 @@ yarn.lock
 # ide
 .idea
 *.iml
+
+# Server-only blog content. Keep source posts on the target server, not GitHub.
+src/content/posts/**
+!src/content/posts/.gitkeep
