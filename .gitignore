@@ -33,3 +33,7 @@ yarn.lock
 # Server-only blog content. Keep source posts on the target server, not GitHub.
 src/content/posts/**
 !src/content/posts/.gitkeep
+
+# Server-only post media. Keep sourced screenshots/previews on the target server.
+public/post-media/**
+!public/post-media/.gitkeep
