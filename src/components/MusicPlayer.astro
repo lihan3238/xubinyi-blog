@@ -121,6 +121,33 @@ const musicListUrl = "https://raw.githubusercontent.com/lihan3238/music/main/mus
 		}, 1000);
 	}
 
+	function forceMiniLayout() {
+		const player = document.querySelector(".aplayer.aplayer-fixed");
+		if (!player) return;
+		player.classList.add("aplayer-narrow");
+	}
+
+	function bindNavigationGuard() {
+		if (window.__xubinyiAPlayerNavigationGuard) return;
+		window.__xubinyiAPlayerNavigationGuard = true;
+
+		const schedule = () => {
+			window.requestAnimationFrame(forceMiniLayout);
+			window.setTimeout(forceMiniLayout, 100);
+			window.setTimeout(forceMiniLayout, 500);
+		};
+
+		if (window.swup?.hooks) {
+			window.swup.hooks.on("visit:start", schedule);
+			window.swup.hooks.on("content:replace", schedule);
+			window.swup.hooks.on("page:view", schedule);
+		} else {
+			document.addEventListener("swup:enable", bindNavigationGuard, { once: true });
+		}
+
+		schedule();
+	}
+
 	function initAPlayer(audioList) {
 		const audio = normalizeAudioList(audioList);
 		if (audio.length === 0) return;
@@ -135,7 +162,7 @@ const musicListUrl = "https://raw.githubusercontent.com/lihan3238/music/main/mus
 			theme: "#f8f4fc",
 			loop: "all",
 			order: "random",
-			preload: "metadata",
+			preload: "none",
 			volume: 0.4,
 			mutex: true,
 			listFolded: true,
@@ -146,6 +173,8 @@ const musicListUrl = "https://raw.githubusercontent.com/lihan3238/music/main/mus
 
 		restoreState(window.__xubinyiAPlayer);
 		persistState(window.__xubinyiAPlayer);
+		forceMiniLayout();
+		bindNavigationGuard();
 	}
 
 	function bootMusicPlayer() {
@@ -173,26 +202,52 @@ const musicListUrl = "https://raw.githubusercontent.com/lihan3238/music/main/mus
 
 <style is:global>
 #global-music-player {
-	position: relative;
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	width: 66px;
+	height: 66px;
 	z-index: 80;
+	pointer-events: none;
 }
 
 .aplayer.aplayer-fixed {
 	z-index: 80;
 }
 
+.aplayer.aplayer-fixed.aplayer-narrow {
+	position: fixed !important;
+	inset: auto auto 0 0 !important;
+	width: 66px !important;
+	height: 66px !important;
+	max-width: 66px !important;
+	max-height: 66px !important;
+	overflow: visible !important;
+	pointer-events: auto;
+}
+
 .aplayer.aplayer-fixed .aplayer-body {
+	position: fixed !important;
+	inset: auto auto 0 0 !important;
 	backdrop-filter: blur(12px);
 	border-top-right-radius: 8px;
 	box-shadow: 0 10px 30px rgb(0 0 0 / 12%);
+}
+
+.aplayer.aplayer-fixed.aplayer-narrow .aplayer-body {
+	width: 66px !important;
+	height: 66px !important;
 }
 
 .aplayer .aplayer-list ol li {
 	transition: none;
 }
 
-.aplayer.aplayer-fixed .aplayer-lrc {
+.aplayer.aplayer-fixed.aplayer-narrow .aplayer-list,
+.aplayer.aplayer-fixed.aplayer-narrow .aplayer-lrc {
 	display: none !important;
+	max-height: 0 !important;
+	overflow: hidden !important;
 }
 
 @media (max-width: 640px) {

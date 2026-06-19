@@ -4,6 +4,7 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 
 import ConfigCarrier from "@components/ConfigCarrier.astro";
+import Live2DCompanion from "@components/Live2DCompanion.astro";
 import MusicPlayer from "@components/MusicPlayer.astro";
 import { profileConfig, siteConfig } from "@/config";
 import {
@@ -154,6 +155,7 @@ const bannerOffset =
 	>
 		<ConfigCarrier></ConfigCarrier>
 		<slot />
+		<Live2DCompanion />
 		<MusicPlayer />
 
 		<!-- increase the page height during page transition to prevent the scrolling animation from jumping -->

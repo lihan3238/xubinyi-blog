@@ -1,0 +1,194 @@
+---
+const oml2dVersion = "0.19.3";
+const oml2dJsUrl = `https://unpkg.com/oh-my-live2d@${oml2dVersion}/dist/index.min.js`;
+const modelUrl =
+	"https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@b1de66b0b1f1cb881d95fb6158622aeb6a2827bd/Samples/Resources/Wanko/Wanko.model3.json";
+---
+
+<div id="live2d-companion-root" aria-hidden="true"></div>
+
+<script is:inline define:vars={{ oml2dJsUrl, modelUrl }}>
+(() => {
+	const ROOT_ID = "live2d-companion-root";
+	const DESKTOP_QUERY = "(min-width: 1024px)";
+
+	if (window.__xubinyiLive2DBooted) return;
+	window.__xubinyiLive2DBooted = true;
+
+	function ensureRoot() {
+		let root = document.getElementById(ROOT_ID);
+		if (!root) {
+			root = document.createElement("div");
+			root.id = ROOT_ID;
+			root.setAttribute("aria-hidden", "true");
+			document.body.appendChild(root);
+		}
+		return root;
+	}
+
+	function loadOml2d() {
+		if (window.OML2D?.loadOml2d) return Promise.resolve(window.OML2D);
+		if (window.__xubinyiOml2dScript) return window.__xubinyiOml2dScript;
+
+		window.__xubinyiOml2dScript = new Promise((resolve, reject) => {
+			const script = document.createElement("script");
+			script.src = oml2dJsUrl;
+			script.async = true;
+			script.onload = () => resolve(window.OML2D);
+			script.onerror = () => reject(new Error("Failed to load OhMyLive2D"));
+			document.head.appendChild(script);
+		});
+
+		return window.__xubinyiOml2dScript;
+	}
+
+	function bootLive2D() {
+		if (!window.matchMedia(DESKTOP_QUERY).matches) return;
+		if (window.__xubinyiOml2dInstance) return;
+
+		const root = ensureRoot();
+		loadOml2d()
+			.then((OML2D) => {
+				if (!OML2D?.loadOml2d || window.__xubinyiOml2dInstance) return;
+				window.__xubinyiOml2dInstance = OML2D.loadOml2d({
+					parentElement: root,
+					dockedPosition: "right",
+					mobileDisplay: false,
+					primaryColor: "#18b8c8",
+					sayHello: false,
+					transitionTime: 600,
+					models: [
+						{
+							name: "Wanko",
+							path: modelUrl,
+							scale: 0.16,
+							position: [0, 28],
+							motionPreloadStrategy: "IDLE",
+							stageStyle: {
+								width: "220px",
+								height: "260px",
+							},
+						},
+					],
+					tips: {
+						messageLine: 2,
+						style: {
+							width: "168px",
+							minHeight: "54px",
+							fontSize: "13px",
+							borderRadius: "8px",
+						},
+						welcomeTips: {
+							duration: 4200,
+							message: {
+								daybreak: "早起成功，先奖励自己一个深呼吸。",
+								morning: "上午好，今天也别把待办写成小说。",
+								noon: "午饭时间，代码和人都需要补能量。",
+								afternoon: "下午好，困了就眨眨眼，我已经在眨了。",
+								dusk: "傍晚了，今天的进度先别和焦虑合租。",
+								night: "晚上好，适合写点东西，也适合早点收工。",
+								lateNight: "夜深了，再刷新一次就睡。",
+								weeHours: "凌晨还在？小心明天的大脑开启省电模式。",
+							},
+						},
+						idleTips: {
+							interval: 12000,
+							duration: 3800,
+							message: [
+								"别光看我，文章也挺好看的。",
+								"播放器在左边，我在右边，分工明确。",
+								"摸鱼可以，记得偶尔上岸。",
+								"今天的页面加载得很有精神。",
+							],
+						},
+						copyTips: {
+							duration: 2600,
+							message: ["复制成功，知识正在打包。", "这段文字已被你带走。"],
+						},
+					},
+					statusBar: { disable: true },
+					menus: { disable: true },
+				});
+				bindLive2DNavigationGuard();
+			})
+			.catch((error) => {
+				console.warn("Live2D initialization failed:", error);
+			});
+	}
+
+	function forceLive2DLayout() {
+		const stage = document.getElementById("oml2d-stage");
+		if (stage) {
+			stage.style.transform = "none";
+		}
+	}
+
+	function bindLive2DNavigationGuard() {
+		if (window.__xubinyiLive2DNavigationGuard) return;
+		window.__xubinyiLive2DNavigationGuard = true;
+
+		const schedule = () => {
+			window.requestAnimationFrame(forceLive2DLayout);
+			window.setTimeout(forceLive2DLayout, 100);
+			window.setTimeout(forceLive2DLayout, 500);
+		};
+
+		if (window.swup?.hooks) {
+			window.swup.hooks.on("visit:start", schedule);
+			window.swup.hooks.on("content:replace", schedule);
+			window.swup.hooks.on("page:view", schedule);
+		} else {
+			document.addEventListener("swup:enable", bindLive2DNavigationGuard, { once: true });
+		}
+
+		schedule();
+	}
+
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", bootLive2D, { once: true });
+	} else {
+		bootLive2D();
+	}
+})();
+</script>
+
+<style is:global>
+#live2d-companion-root {
+	position: fixed;
+	right: 0.75rem;
+	bottom: 3.75rem;
+	z-index: 70;
+	pointer-events: none;
+}
+
+#live2d-companion-root canvas,
+#live2d-companion-root button,
+#live2d-companion-root [role="button"] {
+	pointer-events: auto;
+}
+
+#oml2d-stage {
+	position: fixed !important;
+	inset: auto 0.75rem 3.75rem auto !important;
+	width: 220px !important;
+	height: 260px !important;
+	transform: none !important;
+	z-index: 70 !important;
+}
+
+#oml2d-tips {
+	position: fixed !important;
+	right: 1.25rem !important;
+	bottom: 19.25rem !important;
+	transform: none !important;
+	z-index: 71 !important;
+}
+
+@media (max-width: 1023px) {
+	#live2d-companion-root,
+	#oml2d-stage,
+	#oml2d-tips {
+		display: none !important;
+	}
+}
+</style>
